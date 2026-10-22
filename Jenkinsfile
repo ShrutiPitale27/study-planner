@@ -8,7 +8,7 @@ pipeline {
 
     stages {
         stage('Checkout, Validate, Build and Push') {
-            agent { label 'built-in' }
+            agent { label 'built-in-node' }
 
             steps {
                 checkout scm
