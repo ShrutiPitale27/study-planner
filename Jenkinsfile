@@ -1,20 +1,18 @@
 
 pipeline {
-    agent any
+    agent none
 
     environment {
         IMAGE_NAME = 'shrutipitale27/studyspace'
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout, Validate, Build and Push') {
+            agent { label 'built-in' }
+
             steps {
                 checkout scm
-            }
-        }
 
-        stage('Validate Project Files') {
-            steps {
                 sh '''
                     set -e
                     test -f index.html
@@ -23,22 +21,14 @@ pipeline {
                     test -f Dockerfile
                     echo "StudySpace files verified."
                 '''
-            }
-        }
 
-        stage('Build Docker Image') {
-            steps {
                 sh '''
                     set -e
                     docker build \
                       -t ${IMAGE_NAME}:${BUILD_NUMBER} \
                       -t ${IMAGE_NAME}:latest .
                 '''
-            }
-        }
 
-        stage('Push to Docker Hub') {
-            steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
                     usernameVariable: 'DOCKER_USER',
@@ -53,6 +43,19 @@ pipeline {
                         docker logout
                     '''
                 }
+            }
+        }
+
+        stage('Deploy to Minikube') {
+            agent { label 'windows-minikube' }
+
+            steps {
+                bat '''
+                    kubectl set image deployment/studyspace studyspace=%IMAGE_NAME%:%BUILD_NUMBER%
+                    kubectl rollout status deployment/studyspace --timeout=120s
+                    kubectl get pods
+                    kubectl get service studyspace-service
+                '''
             }
         }
     }
